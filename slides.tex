@@ -1,0 +1,219 @@
+\documentclass{beamer}
+
+\usepackage{svg}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{pifont}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\mode<presentation>
+
+\title{ABCRanger}
+\subtitle{A fast and scalable random forest library for ABC model choice and parameter estimation}
+\author{F.-D. Collin \inst{2} A. Estoup \inst{1} J.-M. Marin \inst{2} L. Raynal \inst{2} }
+\institute[shortinst]{\inst{1} CBGP, INRA, CIRAD, IRD, Montpellier SupAgro, Univ. Montpellier \and \inst{2} Université de Montpellier, CNRS, IMAG UMR 5149}
+\date{\today}
+
+\colorlet{darkyellow}{yellow!60!black}
+\colorlet{lightblue}{blue!65}
+\colorlet{darkred}{red!60!black}
+
+\definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
+
+\newtcbox{\mybox}{on line,
+  colframe=mycolor,colback=mycolor!10!white,arc=4pt,boxsep=0pt,left=6pt,right=6pt,boxrule=0pt,top=6pt,bottom=6pt}
+
+\newcommand{\realemph}[1]{\mybox{\textit{#1}}}
+
+\begin{document}
+
+
+    \begin{frame}
+        \titlepage
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{Outline}
+        \tableofcontents
+    \end{frame}
+
+    \section{Bayesian context}
+    \subsection{Definitions and goal}
+    \begin{frame}
+        \frametitle{Approximate Bayesian Computation}
+        
+        It is defined  by :
+        \begin{itemize}
+            \item \emph{Bayesian Inference} context
+            \item \emph{Likelihood-free inference} method
+        \end{itemize}
+            
+    \end{frame}
+
+    \subsection{Bayes Theorem}
+    \begin{frame}
+        \frametitle{Bayesian Inference}
+        "If I believe in some model and I have some new data, what is the probability of this model, knowing this new data?".
+        Baye's Theorem gives the answer :
+
+        $$P(\Theta|Y) = \frac{P(Y|\Theta) * P(\Theta)}{P(Y)}$$
+
+        Where :
+        \begin{description}
+            \item[Y] the \emph{data}, observations, evidence and so on. 
+            \item[$\Theta$] the \emph{model} (hypothesis) we want to run
+            \item[$P(\Theta)$] the \emph{prior probability} 
+            \item[$P(\Theta|Y)$] the \emph{posterior probability} 
+            \item[$P(Y|\Theta)$] the \emph{likelihood}
+            \item[$P(Y)$] the \emph{marginal} likehood
+        \end{description}
+
+        
+    \end{frame}
+
+    \subsection{Introduction to ABC}
+    \begin{frame}
+        \frametitle{Likelihood free}
+        \begin{itemize}
+            \item $P(\Theta)$ is the easy part, $P(Y)$ should be too (and sometimes we can bypass it).
+            \item Computing the \emph{likelihood} $P(Y|\Theta)$ is the name of the game.
+        \end{itemize}
+        
+        Often we can't have a function for the likelihood, or it is intractable, too complex and so on.\\
+
+        \ding{231} Enter the \emph{Likelihood-free} Kingdom and \emph{ABC (Approximate Bayesian Computation)}.
+
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{ABC in short}
+        Given an observed data, the basic idea of ABC is to approximate the likelihood of a parametrized model with selected simulations, by comparing the observed data and simulated ones via computed \emph{summary statistics}.\\
+        
+        The table of summary statistics for simulated data is called \realemph{the reference table}.
+
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{ABC schema}
+
+        \begin{figure}
+            \centering
+            \fontsize{6pt}{7.2}\selectfont
+            \includesvg[height=8cm]{abc-explication}
+            % \caption{ABC details}
+        \end{figure}
+    \end{frame}
+
+    \section{Posterior Methodologies}
+
+    \subsection{Workflow}
+    \begin{frame}
+        \frametitle{AbcRf/AbcRanger, presentation}
+        \emph{AbcRanger} is a software for ABC posterior methodologies. It gets the output from an ABC run and provides :
+        \begin{description}
+            \item[\color{darkred}\sffamily \textbf{Model choice:}] Simulate data for several models and \emph{choose the best model to fit our data}
+            \item[\color{darkred}\sffamily \textbf{Parameter estimation:}] Simulate data for one model and \emph{infer one or several parameters for this model given the observed data}
+          \end{description}
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{ABC workflow with AbcRanger}
+
+        \begin{figure}
+            \centering
+            \fontsize{6pt}{7.2}\selectfont
+
+              \includesvg[height=8cm]{methodologies}
+          \end{figure}
+    \end{frame} 
+
+    \subsection{Posterior methodologies}
+    \begin{frame}
+        \frametitle{Parameter estimation}
+        Random Forest setup :
+        \begin{itemize}
+            \item Choose a parameter $t$ of the model 
+            \item Train a regression RF on reftable with the $t$ as target
+            \item Evaluate local/posteriors on observed data
+        \end{itemize}
+        \ding{231} Estimator for posterior PDF for the parameter (discretized but obtainable via kde) 
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{Model Choice}
+        Two staged RF setup:
+        \begin{enumerate}
+            \item Classification :
+                \begin{itemize}
+                    \item Train a classification RF with the models (classes) as target
+                    \item Eval the RF on observed data to get votes and chosen model
+                
+                \end{itemize}
+            \item Regression : 
+                \begin{itemize}
+                    \item Using the previous RF, get the classified/misclassified on the training set as 0,1 and train a new regression RF with this as target
+                    \item Evalute the obtained RF on the observed data to get the posterior probability of the chosen model
+                \end{itemize}
+        \end{enumerate}
+    \end{frame}
+
+    \subsection{Software and demos}
+    \begin{frame}
+        \frametitle{AbcRanger details}
+        \begin{itemize}
+            \item Written in C++, \url{http://github.com/diyabc/abcranger}, code and binaries (mac/windows/linux)
+            \item Python frontend in the final stage (demos running)
+            \item R frontend WIP
+            \item optimized for large, high dimensional reference table without (too much) memory limits: more than $10^{e5}$ columns and $10^{e6}$ rows.
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{Under the hood, a new RF implementation}
+        Since ABC procedures only use trained Random Forests on a known set of observations, we have altered the random forest training computation by using only a subset of in-memory trees at a time and accumulating the required outcomes (predictions and statistics). Memory footprint is vastly improved and there is no performance cost.
+
+        \begin{figure}
+          \centering
+          \fontsize{6pt}{7.2}\selectfont
+          \includesvg[height=2.5cm]{RF-optim}
+        \end{figure}
+    
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{Demo time}
+        \begin{itemize}
+            \item \url{https://github.com/diyabc/abcranger/blob/master/testpy/Parameter\%20Estimation\%20Demo.ipynb}
+            \item \url{https://github.com/diyabc/abcranger/blob/master/testpy/Model\%20Choice\%20Demo.ipynb}
+        \end{itemize}
+    \end{frame}
+
+    \section{Thoughts and Perspectives}
+    \begin{frame}
+        \frametitle{Conclusion}
+        \begin{enumerate}
+            \item Thoughts:
+                \begin{itemize}
+                    \item nice integration of ML techniques in a model-based approach...
+                    \item ... although the objective there is not better "predictions" or "score" as in ML but easy and accurate posteriors
+                \end{itemize}
+            \item Perspectives:
+                \begin{itemize}
+                    \item deeper integration in ABC pipeline like the Elfi python package
+                    \item On the RF side, ongoing project \realemph{LeafLitter} intends to pursue that line even further: for a growing tree, only encountered leaves are stored. Thus, the memory footprint of the trees becomes negligible, and their growing could finally be parallelized at full scale.
+                \end{itemize}
+        \end{enumerate}
+    \end{frame}
+
+    \section{Reference}
+    \begin{frame}{allowframebreaks}
+        \frametitle{References}
+        \nocite{*}
+        \fontsize{10pt}{7.2}\selectfont
+
+        \bibliographystyle{unsrt}\bibliography{poster}
+    \end{frame}
+
+\end{document}
+
